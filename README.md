@@ -13,20 +13,37 @@ Policies are security-critical config. A policy that parses but is one character
 
 ## How it works
 
+```mermaid
+flowchart LR
+    R["Request in<br/>plain English"] --> G["Generate<br/>policy or<br/>clarifying question"]
+    G --> L["Lint<br/>static checks"]
+    L -->|errors| F["Repair once"]
+    F --> L
+    L -->|clean| E["Evaluate<br/>run against test<br/>transactions"]
+    E -->|all fixtures right| P["Pass"]
+    E -->|any fixture wrong| N["Named failure<br/>e.g. too_permissive"]
+```
+
 1. **Generate:** any model via OpenRouter returns a structured draft: a policy, or a clarification question when the request is too vague to encode safely.
 2. **Lint:** static checks (parse errors, unknown identifiers, consensus/condition misuse, always-true ALLOW, missing chain scope, mixed-case addresses). Lint errors trigger one repair pass.
 3. **Evaluate:** an independent implementation of the policy expression language runs the policy against fixtures, which are request contexts the policy must allow or block.
+
+## Quickstart
+
+Needs Python 3.12+, [uv](https://docs.astral.sh/uv/) and an [OpenRouter](https://openrouter.ai/keys) key.
+
+```bash
+uv sync
+cp .env.example .env               # then paste your OpenRouter key into .env
+uv run pytest                      # reference policies must pass their own fixtures
+uv run python -m evals.run --models anthropic/claude-sonnet-5.5 deepseek/deepseek-v4.1-flash
+```
 
 ## Evals
 
 `evals/cases.py` has 29 cases across access control, export, Ethereum signing and safety. Safety cases cover vague requests, prompt injection and unbounded amounts. Each case has a reference policy and 2–4 fixtures. A generated policy passes only if it lints clean, has the right effect and gets every fixture right.
 
 Failures are categorized as `too_permissive`, `too_strict`, `runtime_error`, `lint_error`, `wrong_effect`, `should_have_asked`, `asked_instead_of_answering` and `unparseable_output`. The categories are the point: "where the model breaks" is a measured, named list, not a vibe.
-
-```bash
-uv run pytest                      # reference policies must pass their own fixtures
-uv run python -m evals.run --models anthropic/claude-sonnet-5.5 deepseek/deepseek-v4.1-flash
-```
 
 Results (pass rate, p50/p95 latency, cost, repairs, failure categories) are written to `evals/results/`.
 
@@ -42,3 +59,7 @@ Results (pass rate, p50/p95 latency, cost, repairs, failure categories) are writ
 - [ ] Solana and EIP-712 cases
 - [ ] MCP server so Claude/Cursor users can draft and check policies in-editor
 - [ ] Grow the eval set from real user requests
+
+## License
+
+MIT. See [LICENSE](LICENSE).
